@@ -1,6 +1,6 @@
+using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor; // Required for AssetDatabase and EditorUtility
@@ -22,14 +22,16 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WriteEndObject();
         }
 
-        public override Vector3 ReadJson(JsonReader reader, Type objectType, Vector3 existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Vector3 ReadJson(
+            JsonReader reader,
+            Type objectType,
+            Vector3 existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             JObject jo = JObject.Load(reader);
-            return new Vector3(
-                (float)jo["x"],
-                (float)jo["y"],
-                (float)jo["z"]
-            );
+            return new Vector3((float)jo["x"], (float)jo["y"], (float)jo["z"]);
         }
     }
 
@@ -45,19 +47,26 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WriteEndObject();
         }
 
-        public override Vector2 ReadJson(JsonReader reader, Type objectType, Vector2 existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Vector2 ReadJson(
+            JsonReader reader,
+            Type objectType,
+            Vector2 existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             JObject jo = JObject.Load(reader);
-            return new Vector2(
-                (float)jo["x"],
-                (float)jo["y"]
-            );
+            return new Vector2((float)jo["x"], (float)jo["y"]);
         }
     }
 
     public class QuaternionConverter : JsonConverter<Quaternion>
     {
-        public override void WriteJson(JsonWriter writer, Quaternion value, JsonSerializer serializer)
+        public override void WriteJson(
+            JsonWriter writer,
+            Quaternion value,
+            JsonSerializer serializer
+        )
         {
             writer.WriteStartObject();
             writer.WritePropertyName("x");
@@ -71,15 +80,16 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WriteEndObject();
         }
 
-        public override Quaternion ReadJson(JsonReader reader, Type objectType, Quaternion existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Quaternion ReadJson(
+            JsonReader reader,
+            Type objectType,
+            Quaternion existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             JObject jo = JObject.Load(reader);
-            return new Quaternion(
-                (float)jo["x"],
-                (float)jo["y"],
-                (float)jo["z"],
-                (float)jo["w"]
-            );
+            return new Quaternion((float)jo["x"], (float)jo["y"], (float)jo["z"], (float)jo["w"]);
         }
     }
 
@@ -99,15 +109,16 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WriteEndObject();
         }
 
-        public override Color ReadJson(JsonReader reader, Type objectType, Color existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Color ReadJson(
+            JsonReader reader,
+            Type objectType,
+            Color existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             JObject jo = JObject.Load(reader);
-            return new Color(
-                (float)jo["r"],
-                (float)jo["g"],
-                (float)jo["b"],
-                (float)jo["a"]
-            );
+            return new Color((float)jo["r"], (float)jo["g"], (float)jo["b"], (float)jo["a"]);
         }
     }
 
@@ -127,7 +138,13 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WriteEndObject();
         }
 
-        public override Rect ReadJson(JsonReader reader, Type objectType, Rect existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Rect ReadJson(
+            JsonReader reader,
+            Type objectType,
+            Rect existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             JObject jo = JObject.Load(reader);
             return new Rect(
@@ -147,15 +164,21 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WritePropertyName("center");
             serializer.Serialize(writer, value.center); // Use serializer to handle nested Vector3
             writer.WritePropertyName("size");
-            serializer.Serialize(writer, value.size);   // Use serializer to handle nested Vector3
+            serializer.Serialize(writer, value.size); // Use serializer to handle nested Vector3
             writer.WriteEndObject();
         }
 
-        public override Bounds ReadJson(JsonReader reader, Type objectType, Bounds existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Bounds ReadJson(
+            JsonReader reader,
+            Type objectType,
+            Bounds existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             JObject jo = JObject.Load(reader);
             Vector3 center = jo["center"].ToObject<Vector3>(serializer); // Use serializer to handle nested Vector3
-            Vector3 size = jo["size"].ToObject<Vector3>(serializer);     // Use serializer to handle nested Vector3
+            Vector3 size = jo["size"].ToObject<Vector3>(serializer); // Use serializer to handle nested Vector3
             return new Bounds(center, size);
         }
     }
@@ -176,15 +199,16 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WriteEndObject();
         }
 
-        public override Vector4 ReadJson(JsonReader reader, Type objectType, Vector4 existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Vector4 ReadJson(
+            JsonReader reader,
+            Type objectType,
+            Vector4 existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             JObject jo = JObject.Load(reader);
-            return new Vector4(
-                (float)jo["x"],
-                (float)jo["y"],
-                (float)jo["z"],
-                (float)jo["w"]
-            );
+            return new Vector4((float)jo["x"], (float)jo["y"], (float)jo["z"], (float)jo["w"]);
         }
     }
 
@@ -196,36 +220,64 @@ namespace MCPForUnity.Runtime.Serialization
     /// </summary>
     public class Matrix4x4Converter : JsonConverter<Matrix4x4>
     {
-        public override void WriteJson(JsonWriter writer, Matrix4x4 value, JsonSerializer serializer)
+        public override void WriteJson(
+            JsonWriter writer,
+            Matrix4x4 value,
+            JsonSerializer serializer
+        )
         {
             writer.WriteStartObject();
             // Only access raw matrix elements - NEVER computed properties like lossyScale/rotation
-            writer.WritePropertyName("m00"); writer.WriteValue(value.m00);
-            writer.WritePropertyName("m01"); writer.WriteValue(value.m01);
-            writer.WritePropertyName("m02"); writer.WriteValue(value.m02);
-            writer.WritePropertyName("m03"); writer.WriteValue(value.m03);
-            writer.WritePropertyName("m10"); writer.WriteValue(value.m10);
-            writer.WritePropertyName("m11"); writer.WriteValue(value.m11);
-            writer.WritePropertyName("m12"); writer.WriteValue(value.m12);
-            writer.WritePropertyName("m13"); writer.WriteValue(value.m13);
-            writer.WritePropertyName("m20"); writer.WriteValue(value.m20);
-            writer.WritePropertyName("m21"); writer.WriteValue(value.m21);
-            writer.WritePropertyName("m22"); writer.WriteValue(value.m22);
-            writer.WritePropertyName("m23"); writer.WriteValue(value.m23);
-            writer.WritePropertyName("m30"); writer.WriteValue(value.m30);
-            writer.WritePropertyName("m31"); writer.WriteValue(value.m31);
-            writer.WritePropertyName("m32"); writer.WriteValue(value.m32);
-            writer.WritePropertyName("m33"); writer.WriteValue(value.m33);
+            writer.WritePropertyName("m00");
+            writer.WriteValue(value.m00);
+            writer.WritePropertyName("m01");
+            writer.WriteValue(value.m01);
+            writer.WritePropertyName("m02");
+            writer.WriteValue(value.m02);
+            writer.WritePropertyName("m03");
+            writer.WriteValue(value.m03);
+            writer.WritePropertyName("m10");
+            writer.WriteValue(value.m10);
+            writer.WritePropertyName("m11");
+            writer.WriteValue(value.m11);
+            writer.WritePropertyName("m12");
+            writer.WriteValue(value.m12);
+            writer.WritePropertyName("m13");
+            writer.WriteValue(value.m13);
+            writer.WritePropertyName("m20");
+            writer.WriteValue(value.m20);
+            writer.WritePropertyName("m21");
+            writer.WriteValue(value.m21);
+            writer.WritePropertyName("m22");
+            writer.WriteValue(value.m22);
+            writer.WritePropertyName("m23");
+            writer.WriteValue(value.m23);
+            writer.WritePropertyName("m30");
+            writer.WriteValue(value.m30);
+            writer.WritePropertyName("m31");
+            writer.WriteValue(value.m31);
+            writer.WritePropertyName("m32");
+            writer.WriteValue(value.m32);
+            writer.WritePropertyName("m33");
+            writer.WriteValue(value.m33);
             writer.WriteEndObject();
         }
 
-        public override Matrix4x4 ReadJson(JsonReader reader, Type objectType, Matrix4x4 existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Matrix4x4 ReadJson(
+            JsonReader reader,
+            Type objectType,
+            Matrix4x4 existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             if (reader.TokenType == JsonToken.Null)
                 return new Matrix4x4(); // Return zero matrix for null (consistent with missing field defaults)
 
             if (reader.TokenType != JsonToken.StartObject)
-                throw new JsonSerializationException($"Expected JSON object or null when deserializing Matrix4x4, got '{reader.TokenType}'.");
+                throw new JsonSerializationException(
+                    $"Expected JSON object or null when deserializing Matrix4x4, got '{reader.TokenType}'."
+                );
 
             JObject jo = JObject.Load(reader);
             var matrix = new Matrix4x4();
@@ -255,7 +307,11 @@ namespace MCPForUnity.Runtime.Serialization
         public override bool CanRead => true; // We need to implement ReadJson
         public override bool CanWrite => true;
 
-        public override void WriteJson(JsonWriter writer, UnityEngine.Object value, JsonSerializer serializer)
+        public override void WriteJson(
+            JsonWriter writer,
+            UnityEngine.Object value,
+            JsonSerializer serializer
+        )
         {
             if (value == null)
             {
@@ -302,13 +358,21 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WriteValue(value.name);
             writer.WritePropertyName("instanceID");
             writer.WriteValue(value.GetInstanceID());
-             writer.WritePropertyName("warning");
-            writer.WriteValue("UnityEngineObjectConverter running in non-Editor mode, asset path unavailable.");
+            writer.WritePropertyName("warning");
+            writer.WriteValue(
+                "UnityEngineObjectConverter running in non-Editor mode, asset path unavailable."
+            );
             writer.WriteEndObject();
 #endif
         }
 
-        public override UnityEngine.Object ReadJson(JsonReader reader, Type objectType, UnityEngine.Object existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override UnityEngine.Object ReadJson(
+            JsonReader reader,
+            Type objectType,
+            UnityEngine.Object existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        )
         {
             if (reader.TokenType == JsonToken.Null)
             {
@@ -323,13 +387,18 @@ namespace MCPForUnity.Runtime.Serialization
                 // Check if it looks like a GUID (32 hex chars, optionally with hyphens)
                 if (IsValidGuid(strValue))
                 {
-                    string path = UnityEditor.AssetDatabase.GUIDToAssetPath(strValue.Replace("-", "").ToLowerInvariant());
+                    string path = UnityEditor.AssetDatabase.GUIDToAssetPath(
+                        strValue.Replace("-", "").ToLowerInvariant()
+                    );
                     if (!string.IsNullOrEmpty(path))
                     {
                         var asset = UnityEditor.AssetDatabase.LoadAssetAtPath(path, objectType);
-                        if (asset != null) return asset;
+                        if (asset != null)
+                            return asset;
                     }
-                    UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] Could not load asset with GUID '{strValue}' as type '{objectType.Name}'.");
+                    UnityEngine.Debug.LogWarning(
+                        $"[UnityEngineObjectConverter] Could not load asset with GUID '{strValue}' as type '{objectType.Name}'."
+                    );
                     return null;
                 }
 
@@ -337,7 +406,9 @@ namespace MCPForUnity.Runtime.Serialization
                 var loadedAsset = UnityEditor.AssetDatabase.LoadAssetAtPath(strValue, objectType);
                 if (loadedAsset == null)
                 {
-                    UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] Could not load asset at path '{strValue}' as type '{objectType.Name}'.");
+                    UnityEngine.Debug.LogWarning(
+                        $"[UnityEngineObjectConverter] Could not load asset at path '{strValue}' as type '{objectType.Name}'."
+                    );
                 }
                 return loadedAsset;
             }
@@ -347,24 +418,35 @@ namespace MCPForUnity.Runtime.Serialization
                 JObject jo = JObject.Load(reader);
 
                 // Try to resolve by GUID first (for assets like ScriptableObjects, Materials, etc.)
-                if (jo.TryGetValue("guid", out JToken guidToken) && guidToken.Type == JTokenType.String)
+                if (
+                    jo.TryGetValue("guid", out JToken guidToken)
+                    && guidToken.Type == JTokenType.String
+                )
                 {
                     string guid = guidToken.ToString().Replace("-", "").ToLowerInvariant();
                     string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
                     if (!string.IsNullOrEmpty(path))
                     {
                         var asset = UnityEditor.AssetDatabase.LoadAssetAtPath(path, objectType);
-                        if (asset != null) return asset;
+                        if (asset != null)
+                            return asset;
                     }
-                    UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] Could not load asset with GUID '{guidToken}' as type '{objectType.Name}'.");
+                    UnityEngine.Debug.LogWarning(
+                        $"[UnityEngineObjectConverter] Could not load asset with GUID '{guidToken}' as type '{objectType.Name}'."
+                    );
                     return null;
                 }
 
                 // Try to resolve by instanceID
-                if (jo.TryGetValue("instanceID", out JToken idToken) && idToken.Type == JTokenType.Integer)
+                if (
+                    jo.TryGetValue("instanceID", out JToken idToken)
+                    && idToken.Type == JTokenType.Integer
+                )
                 {
                     int instanceId = idToken.ToObject<int>();
-                    UnityEngine.Object obj = UnityEditor.EditorUtility.InstanceIDToObject(instanceId);
+                    UnityEngine.Object obj = UnityEditor.EditorUtility.InstanceIDToObject(
+                        instanceId
+                    );
                     if (obj != null)
                     {
                         // Direct type match
@@ -380,29 +462,43 @@ namespace MCPForUnity.Runtime.Serialization
                         }
 
                         // Special case: expecting a Component type but got GameObject - try to get the component
-                        if (typeof(Component).IsAssignableFrom(objectType) && obj is GameObject gameObj)
+                        if (
+                            typeof(Component).IsAssignableFrom(objectType)
+                            && obj is GameObject gameObj
+                        )
                         {
                             var component = gameObj.GetComponent(objectType);
                             if (component != null)
                             {
                                 return component;
                             }
-                            UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] GameObject '{gameObj.name}' (ID: {instanceId}) does not have a '{objectType.Name}' component.");
+                            UnityEngine.Debug.LogWarning(
+                                $"[UnityEngineObjectConverter] GameObject '{gameObj.name}' (ID: {instanceId}) does not have a '{objectType.Name}' component."
+                            );
                             return null;
                         }
 
                         // Type mismatch with no automatic conversion available
-                        UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] Instance ID {instanceId} resolved to '{obj.GetType().Name}' but expected '{objectType.Name}'.");
+                        UnityEngine.Debug.LogWarning(
+                            $"[UnityEngineObjectConverter] Instance ID {instanceId} resolved to '{obj.GetType().Name}' but expected '{objectType.Name}'."
+                        );
                         return null;
                     }
                     // Instance ID lookup failed - this can happen if the object was destroyed or ID is stale
-                    string objectName = jo.TryGetValue("name", out JToken nameToken) ? nameToken.ToString() : "unknown";
-                    UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] Could not resolve instance ID {instanceId} (name: '{objectName}') to a valid {objectType.Name}. The object may have been destroyed or the ID is stale.");
+                    string objectName = jo.TryGetValue("name", out JToken nameToken)
+                        ? nameToken.ToString()
+                        : "unknown";
+                    UnityEngine.Debug.LogWarning(
+                        $"[UnityEngineObjectConverter] Could not resolve instance ID {instanceId} (name: '{objectName}') to a valid {objectType.Name}. The object may have been destroyed or the ID is stale."
+                    );
                     return null;
                 }
 
                 // Check if there's an asset path in the object
-                if (jo.TryGetValue("path", out JToken pathToken) && pathToken.Type == JTokenType.String)
+                if (
+                    jo.TryGetValue("path", out JToken pathToken)
+                    && pathToken.Type == JTokenType.String
+                )
                 {
                     string path = pathToken.ToString();
                     var asset = UnityEditor.AssetDatabase.LoadAssetAtPath(path, objectType);
@@ -410,21 +506,29 @@ namespace MCPForUnity.Runtime.Serialization
                     {
                         return asset;
                     }
-                    UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] Could not load asset at path '{path}' as type '{objectType.Name}'.");
+                    UnityEngine.Debug.LogWarning(
+                        $"[UnityEngineObjectConverter] Could not load asset at path '{path}' as type '{objectType.Name}'."
+                    );
                     return null;
                 }
 
                 // Object format not recognized
-                UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] JSON object missing 'instanceID', 'guid', or 'path' field for {objectType.Name} deserialization. Object: {jo.ToString(Formatting.None)}");
+                UnityEngine.Debug.LogWarning(
+                    $"[UnityEngineObjectConverter] JSON object missing 'instanceID', 'guid', or 'path' field for {objectType.Name} deserialization. Object: {jo.ToString(Formatting.None)}"
+                );
                 return null;
             }
 
             // Unexpected token type
-            UnityEngine.Debug.LogWarning($"[UnityEngineObjectConverter] Unexpected token type '{reader.TokenType}' when deserializing {objectType.Name}. Expected Null, String, or Object.");
+            UnityEngine.Debug.LogWarning(
+                $"[UnityEngineObjectConverter] Unexpected token type '{reader.TokenType}' when deserializing {objectType.Name}. Expected Null, String, or Object."
+            );
             return null;
 #else
             // Runtime deserialization is tricky without AssetDatabase/EditorUtility
-            UnityEngine.Debug.LogWarning("UnityEngineObjectConverter cannot deserialize complex objects in non-Editor mode.");
+            UnityEngine.Debug.LogWarning(
+                "UnityEngineObjectConverter cannot deserialize complex objects in non-Editor mode."
+            );
             // Skip the current token to avoid breaking the reader state
             reader.Skip();
             // Return existing value since we can't deserialize without Editor APIs
@@ -437,9 +541,11 @@ namespace MCPForUnity.Runtime.Serialization
         /// </summary>
         private static bool IsValidGuid(string str)
         {
-            if (string.IsNullOrEmpty(str)) return false;
+            if (string.IsNullOrEmpty(str))
+                return false;
             string normalized = str.Replace("-", "");
-            if (normalized.Length != 32) return false;
+            if (normalized.Length != 32)
+                return false;
             foreach (char c in normalized)
             {
                 if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
