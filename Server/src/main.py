@@ -329,7 +329,7 @@ def _normalize_instance_token(instance_token: str | None) -> tuple[str | None, s
 
 def create_mcp_server(project_scoped_tools: bool) -> FastMCP:
     mcp = FastMCP(
-        name="mcp-for-unity-server",
+        name="unity-mcp",
         lifespan=server_lifespan,
         instructions=_build_instructions(project_scoped_tools),
     )
