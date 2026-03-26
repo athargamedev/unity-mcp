@@ -23,6 +23,7 @@ from transport.legacy.unity_connection import async_send_command_with_retry
 
 
 @mcp_for_unity_tool(
+    group="scripting_ext",
     description="Creates and modifies ScriptableObject assets using Unity SerializedObject property paths.",
     annotations=ToolAnnotations(
         title="Manage Scriptable Object",
@@ -46,12 +47,15 @@ async def manage_scriptable_object(
                       "Target asset reference {guid|path} (for modify)."] = None,
     # --- shared ---
     patches: Annotated[list[dict[str, Any]] | str | None,
-                       "Patch list (or JSON string) to apply."] = None,
+                       "Patch list (or JSON string) to apply. "
+                       "For object references: use {\"ref\": {\"guid\": \"...\"}} or {\"value\": {\"guid\": \"...\"}}. "
+                       "For Sprite sub-assets: include \"spriteName\" in the ref/value object. "
+                       "Single-sprite textures auto-resolve from guid/path alone."] = None,
     # --- validation ---
     dry_run: Annotated[bool | str | None,
                        "If true, validate patches without applying (modify only)."] = None,
 ) -> dict[str, Any]:
-    unity_instance = get_unity_instance_from_context(ctx)
+    unity_instance = await get_unity_instance_from_context(ctx)
 
     # Tolerate JSON-string payloads (LLMs sometimes stringify complex objects)
     parsed_target = parse_json_payload(target)

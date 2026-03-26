@@ -57,7 +57,7 @@ async def get_prefab_api_docs(_ctx: Context) -> MCPResponse:
         "workflow": [
             "1. Use manage_asset action=search filterType=Prefab to find prefabs",
             "2. Use the asset path to access detailed data via resources below",
-            "3. Use manage_prefabs tool for prefab stage operations (open, save, close)"
+            "3. Use manage_editor action=open_prefab_stage / close_prefab_stage for prefab editing UI transitions"
         ],
         "path_encoding": {
             "note": "Prefab paths must be URL-encoded when used in resource URIs",
@@ -80,7 +80,8 @@ async def get_prefab_api_docs(_ctx: Context) -> MCPResponse:
             }
         },
         "related_tools": {
-            "manage_prefabs": "Open/close prefab stages, save changes, create prefabs from GameObjects",
+            "manage_editor": "Open/close prefab stages in the Unity Editor UI",
+            "manage_prefabs": "Headless prefab inspection and modification without opening prefab stages",
             "manage_asset": "Search for prefab assets, get asset info",
             "manage_gameobject": "Modify GameObjects in open prefab stage",
             "manage_components": "Add/remove/modify components on prefab GameObjects"
@@ -121,7 +122,7 @@ class PrefabInfoResponse(MCPResponse):
 )
 async def get_prefab_info(ctx: Context, encoded_path: str) -> MCPResponse:
     """Get prefab asset info by path."""
-    unity_instance = get_unity_instance_from_context(ctx)
+    unity_instance = await get_unity_instance_from_context(ctx)
 
     # Decode the URL-encoded path
     decoded_path = _decode_prefab_path(encoded_path)
@@ -173,7 +174,7 @@ class PrefabHierarchyResponse(MCPResponse):
 )
 async def get_prefab_hierarchy(ctx: Context, encoded_path: str) -> MCPResponse:
     """Get prefab hierarchy by path."""
-    unity_instance = get_unity_instance_from_context(ctx)
+    unity_instance = await get_unity_instance_from_context(ctx)
 
     # Decode the URL-encoded path
     decoded_path = _decode_prefab_path(encoded_path)

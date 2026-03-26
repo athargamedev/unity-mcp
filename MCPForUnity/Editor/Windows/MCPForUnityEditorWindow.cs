@@ -10,6 +10,7 @@ using MCPForUnity.Editor.Windows.Components.ClientConfig;
 using MCPForUnity.Editor.Windows.Components.Connection;
 using MCPForUnity.Editor.Windows.Components.Resources;
 using MCPForUnity.Editor.Windows.Components.Tools;
+using MCPForUnity.Editor.Setup;
 using MCPForUnity.Editor.Windows.Components.Validation;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -51,6 +52,7 @@ namespace MCPForUnity.Editor.Windows
         private double lastRefreshTime = 0;
         private const double RefreshDebounceSeconds = 0.5;
         private bool updateCheckQueued = false;
+        private bool updateCheckInFlight = false;
 
         private enum ActivePanel
         {
@@ -237,6 +239,9 @@ namespace MCPForUnity.Editor.Windows
                     connectionSection?.UpdateVersionMismatchWarning(clientName, mismatchMessage);
             }
 
+            // Build Roslyn install section (code-only, no UXML)
+            BuildRoslynSection(validationContainer);
+
             // Load and initialize Validation section
             var validationTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
                 $"{basePath}/Editor/Windows/Components/Validation/McpValidationSection.uxml"
@@ -270,6 +275,11 @@ namespace MCPForUnity.Editor.Windows
                 {
                     if (connectionSection != null)
                         await connectionSection.VerifyBridgeConnectionAsync();
+                };
+                advancedSection.OnPackageDeployed += () =>
+                {
+                    UpdateVersionLabel();
+                    QueueUpdateCheck();
                 };
                 // Wire up health status updates from Connection to Advanced
                 connectionSection?.SetHealthStatusUpdateCallback((isHealthy, statusText) =>
@@ -324,6 +334,7 @@ namespace MCPForUnity.Editor.Windows
 
             // Initial updates
             RefreshAllData();
+            QueueUpdateCheck();
         }
 
         private void UpdateVersionLabel()
@@ -342,7 +353,7 @@ namespace MCPForUnity.Editor.Windows
 
         private void QueueUpdateCheck()
         {
-            if (updateCheckQueued)
+            if (updateCheckQueued || updateCheckInFlight)
             {
                 return;
             }
@@ -367,22 +378,61 @@ namespace MCPForUnity.Editor.Windows
                 return;
             }
 
-            try
+            // Main thread: resolve service + read EditorPrefs cache (both require main thread)
+            var updateService = MCPServiceLocator.Updates;
+            var cachedResult = updateService.TryGetCachedResult(currentVersion);
+            if (cachedResult != null)
             {
-                var result = MCPServiceLocator.Updates.CheckForUpdate(currentVersion);
-                if (result.CheckSucceeded && result.UpdateAvailable && !string.IsNullOrEmpty(result.LatestVersion))
-                {
-                    updateNotificationText.text = $"Newer version available: v{result.LatestVersion} (current v{currentVersion})";
-                    updateNotification.AddToClassList("visible");
-                }
-                else
-                {
-                    updateNotification.RemoveFromClassList("visible");
-                }
+                ApplyUpdateCheckResult(cachedResult, currentVersion);
+                return;
             }
-            catch (Exception ex)
+
+            // Background thread: network I/O only (no EditorPrefs access)
+            updateCheckInFlight = true;
+            Task.Run(() =>
             {
-                McpLog.Info($"Package update check skipped: {ex.Message}");
+                try
+                {
+                    return updateService.FetchAndCompare(currentVersion);
+                }
+                catch (Exception ex)
+                {
+                    McpLog.Info($"Package update check skipped: {ex.Message}");
+                    return null;
+                }
+            }).ContinueWith(t =>
+            {
+                EditorApplication.delayCall += () =>
+                {
+                    updateCheckInFlight = false;
+
+                    // Main thread: cache the result in EditorPrefs
+                    var result = t.Status == TaskStatus.RanToCompletion ? t.Result : null;
+                    if (result != null && result.CheckSucceeded && !string.IsNullOrEmpty(result.LatestVersion))
+                    {
+                        updateService.CacheFetchResult(currentVersion, result.LatestVersion);
+                    }
+
+                    if (this == null || updateNotification == null || updateNotificationText == null)
+                    {
+                        return;
+                    }
+
+                    ApplyUpdateCheckResult(result, currentVersion);
+                };
+            }, TaskScheduler.Default);
+        }
+
+        private void ApplyUpdateCheckResult(UpdateCheckResult result, string currentVersion)
+        {
+            if (result != null && result.CheckSucceeded && result.UpdateAvailable && !string.IsNullOrEmpty(result.LatestVersion))
+            {
+                updateNotificationText.text = $"Update available: v{result.LatestVersion}  (current: v{currentVersion})";
+                updateNotificationText.tooltip = $"Latest version: v{result.LatestVersion}\nCurrent version: v{currentVersion}";
+                updateNotification.AddToClassList("visible");
+            }
+            else
+            {
                 updateNotification.RemoveFromClassList("visible");
             }
         }
@@ -508,7 +558,6 @@ namespace MCPForUnity.Editor.Windows
 
             advancedSection?.UpdatePathOverrides();
             clientConfigSection?.RefreshSelectedClient();
-            QueueUpdateCheck();
         }
 
         private void SetupTabs()
@@ -664,6 +713,42 @@ namespace MCPForUnity.Editor.Windows
                     McpLog.Warn($"Health check verification failed: {ex.Message}");
                 }
             };
+        }
+
+        private static void BuildRoslynSection(VisualElement container)
+        {
+            var section = new VisualElement();
+            section.AddToClassList("section");
+
+            var title = new Label("Runtime Code Execution (Roslyn)");
+            title.AddToClassList("section-title");
+            section.Add(title);
+
+            var content = new VisualElement();
+            content.AddToClassList("section-content");
+
+            bool installed = RoslynInstaller.IsInstalled();
+
+            var statusLabel = new Label(installed
+                ? "\u2713  Roslyn DLLs are installed. The runtime_compilation tool is available."
+                : "Roslyn DLLs are required for the runtime_compilation tool (runtime C# compilation).");
+            statusLabel.AddToClassList("validation-description");
+            statusLabel.style.marginBottom = 4;
+            content.Add(statusLabel);
+
+            var button = new Button(() =>
+            {
+                RoslynInstaller.Install(interactive: true);
+                statusLabel.text = RoslynInstaller.IsInstalled()
+                    ? "\u2713  Roslyn DLLs are installed. The runtime_compilation tool is available."
+                    : "Installation incomplete. Check the console for errors.";
+            });
+            button.text = installed ? "Reinstall Roslyn DLLs" : "Install Roslyn DLLs";
+            button.AddToClassList("action-button");
+            content.Add(button);
+
+            section.Add(content);
+            container.Add(section);
         }
     }
 }

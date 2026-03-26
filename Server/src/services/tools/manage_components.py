@@ -43,11 +43,15 @@ async def manage_components(
     # For set_property action - single property
     property: Annotated[str,
                         "Property name to set (for set_property action)"] | None = None,
-    value: Annotated[str | int | float | bool | dict | list ,
-                     "Value to set (for set_property action)"] | None = None,
+    value: Annotated[str | int | float | bool | dict | list,
+                     "Value to set (for set_property action). "
+                     "For object references: instance ID (int), asset path (string), "
+                     "or {\"guid\": \"...\"} / {\"path\": \"...\"}. "
+                     "For Sprite sub-assets: {\"guid\": \"...\", \"spriteName\": \"<name>\"} or "
+                     "{\"guid\": \"...\", \"fileID\": <id>}. Single-sprite textures auto-resolve."] | None = None,
     # For add/set_property - multiple properties
     properties: Annotated[
-        dict[str, Any],
+        dict[str, Any] | str,
         "Dictionary of property names to values. Example: {\"mass\": 5.0, \"useGravity\": false}"
     ] | None = None,
 ) -> dict[str, Any]:
@@ -65,7 +69,7 @@ async def manage_components(
     - Set single property: action="set_property", target="Enemy", component_type="Rigidbody", property="mass", value=5.0
     - Set multiple properties: action="set_property", target="Enemy", component_type="Rigidbody", properties={"mass": 5.0, "useGravity": false}
     """
-    unity_instance = get_unity_instance_from_context(ctx)
+    unity_instance = await get_unity_instance_from_context(ctx)
 
     gate = await preflight(ctx, wait_for_no_compile=True, refresh_if_dirty=True)
     if gate is not None:

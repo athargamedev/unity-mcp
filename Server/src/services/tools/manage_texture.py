@@ -374,10 +374,12 @@ def _normalize_import_settings(value: Any) -> tuple[dict | None, str | None]:
 
 
 @mcp_for_unity_tool(
+    group="vfx",
     description=(
         "Procedural texture generation for Unity. Creates textures with solid fills, "
         "patterns (checkerboard, stripes, dots, grid, brick), gradients, and noise. "
-        "Actions: create, modify, delete, create_sprite, apply_pattern, apply_gradient, apply_noise"
+        "Actions: create, modify, delete, create_sprite, apply_pattern, apply_gradient, apply_noise, "
+        "set_import_settings"
     ),
     annotations=ToolAnnotations(
         title="Manage Texture",
@@ -393,7 +395,8 @@ async def manage_texture(
         "create_sprite",
         "apply_pattern",
         "apply_gradient",
-        "apply_noise"
+        "apply_noise",
+        "set_import_settings"
     ], "Action to perform."],
 
     # Required for most actions
@@ -459,7 +462,7 @@ async def manage_texture(
         "sprite_mesh_type (full_rect/tight), sprite_extrude (0-32)"] | None = None,
 
 ) -> dict[str, Any]:
-    unity_instance = get_unity_instance_from_context(ctx)
+    unity_instance = await get_unity_instance_from_context(ctx)
 
     # Preflight check
     gate = await preflight(ctx, wait_for_no_compile=True, refresh_if_dirty=True)
