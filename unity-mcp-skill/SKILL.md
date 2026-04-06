@@ -5,15 +5,29 @@ description: Orchestrate Unity Editor via MCP (Model Context Protocol) tools and
 
 # Unity-MCP Operator Guide
 
-This skill helps you effectively use the Unity Editor with MCP tools and resources.
+This skill is optimized for direct execution of Unity MCP tasks. Use resource-first inspection, then tool execution.
 
-## Template Notice
+## Template
 
 Examples in `references/workflows.md` and `references/tools-reference.md` are reusable templates. They may be inaccurate across Unity versions, package setups (UGUI/TMP/Input System), and project-specific conventions. Please check console, compilation errors, or use screenshot after implementation.
 
 Before applying a template:
 - Validate targets/components first via resources and `find_gameobjects`.
 - Treat names, enum values, and property payloads as placeholders to adapt.
+
+## Resource URIs: Do NOT Guess
+
+Resource URIs use a specific scheme — do NOT guess or fabricate them. If you are unsure of a URI, call `ListMcpResourcesTool(server="UnityMCP")` first to get the exact list. Common URIs:
+
+| Resource | URI |
+|----------|-----|
+| Editor state | `mcpforunity://editor/state` |
+| Project info | `mcpforunity://project/info` |
+| Scene GameObject API | `mcpforunity://scene/gameobject-api` |
+| Tags | `mcpforunity://project/tags` |
+| Layers | `mcpforunity://project/layers` |
+| Instances | `mcpforunity://instances` |
+| Custom tools | `mcpforunity://custom-tools` |
 
 ## Quick Start: Resource-First Workflow
 
@@ -24,26 +38,20 @@ Before applying a template:
 2. Understand the scene   → mcpforunity://scene/gameobject-api
 3. Find what you need     → find_gameobjects or resources
 4. Take action            → tools (manage_gameobject, create_script, script_apply_edits, apply_text_edits, validate_script, delete_script, get_sha, etc.)
-5. Verify results         → read_console, manage_camera(action="screenshot"), resources
+5. Verify results         → read_console, capture_screenshot (in manage_scene), resources
 ```
 
 ## Critical Best Practices
 
-### 1. After Writing/Editing Scripts: Wait for Compilation and Check Console
+### 1. After Writing/Editing Scripts: Always Refresh and Check Console
 
 ```python
 # After create_script or script_apply_edits:
-# Both tools already trigger AssetDatabase.ImportAsset + RequestScriptCompilation automatically.
-# No need to call refresh_unity — just wait for compilation to finish, then check console.
-
-# 1. Poll editor state until compilation completes
-# Read mcpforunity://editor/state → wait until is_compiling == false
-
-# 2. Check for compilation errors
+refresh_unity(mode="force", scope="scripts", compile="request", wait_for_ready=True)
 read_console(types=["error"], count=10, include_stacktrace=True)
 ```
 
-**Why:** Unity must compile scripts before they're usable. `create_script` and `script_apply_edits` already trigger import and compilation automatically — calling `refresh_unity` afterward is redundant.
+**Why:** Unity must compile scripts before they're usable. Compilation errors block all tool execution.
 
 ### 2. Use `batch_execute` for Multiple Operations
 
@@ -61,61 +69,16 @@ batch_execute(
 
 **Max 25 commands per batch by default (configurable in Unity MCP Tools window, max 100).** Use `fail_fast=True` for dependent operations.
 
-**Tip:** Also use `batch_execute` for discovery — batch multiple `find_gameobjects` calls instead of calling them one at a time:
-```python
-batch_execute(commands=[
-    {"tool": "find_gameobjects", "params": {"search_term": "Camera", "search_method": "by_component"}},
-    {"tool": "find_gameobjects", "params": {"search_term": "Player", "search_method": "by_tag"}},
-    {"tool": "find_gameobjects", "params": {"search_term": "GameManager", "search_method": "by_name"}}
-])
-```
-
-### 3. Use Screenshots to Verify Visual Results
+### 3. Use `screenshot` in manage_scene to Verify Visual Results
 
 ```python
-# Basic screenshot (saves to Assets/, returns file path only)
-manage_camera(action="screenshot")
+# Via manage_scene
+manage_scene(action="screenshot")  # Returns base64 image
 
-# Inline screenshot (returns base64 PNG directly to the AI)
-manage_camera(action="screenshot", include_image=True)
-
-# Use a specific camera and cap resolution for smaller payloads
-manage_camera(action="screenshot", camera="MainCamera", include_image=True, max_resolution=512)
-
-# Batch surround: captures front/back/left/right/top/bird_eye around the scene
-manage_camera(action="screenshot", batch="surround", max_resolution=256)
-
-# Batch surround centered on a specific object
-manage_camera(action="screenshot", batch="surround", view_target="Player", max_resolution=256)
-
-# Positioned screenshot: place a temp camera and capture in one call
-manage_camera(action="screenshot", view_target="Player", view_position=[0, 10, -10], max_resolution=512)
-
-# Scene View screenshot: capture what the developer sees in the editor
-manage_camera(action="screenshot", capture_source="scene_view", include_image=True)
-
-# Scene View framed on a specific object
-manage_camera(action="screenshot", capture_source="scene_view", view_target="Canvas", include_image=True)
-```
-
-**Best practices for AI scene understanding:**
-- Use `include_image=True` when you need to *see* the scene, not just save a file.
-- Use `batch="surround"` for a comprehensive overview (6 angles, one command).
-- Use `view_target`/`view_position` to capture from a specific viewpoint without needing a scene camera.
-- Use `capture_source="scene_view"` to see the editor viewport (gizmos, wireframes, grid).
-- Keep `max_resolution` at 256–512 to balance quality vs. token cost.
-
-```python
-# Agentic camera loop: point, shoot, analyze
-manage_gameobject(action="look_at", target="MainCamera", look_at_target="Player")
-manage_camera(action="screenshot", camera="MainCamera", include_image=True, max_resolution=512)
-# → Analyze image, decide next action
-
-# Multi-view screenshot (6-angle contact sheet)
-manage_camera(action="screenshot_multiview", max_resolution=480)
-
-# Scene View for editor-level inspection (shows gizmos, debug overlays, etc.)
-manage_camera(action="screenshot", capture_source="scene_view", view_target="Player", include_image=True)
+# After creating/modifying objects, verify visually:
+# 1. Create objects
+# 2. capture screenshot
+# 3. Analyze if result matches intent
 ```
 
 ### 4. Check Console After Major Changes
@@ -180,32 +143,26 @@ uri="file:///full/path/to/file.cs"
 |----------|-----------|---------|
 | **Scene** | `manage_scene`, `find_gameobjects` | Scene operations, finding objects |
 | **Objects** | `manage_gameobject`, `manage_components` | Creating/modifying GameObjects |
-| **Scripts** | `create_script`, `script_apply_edits`, `validate_script` | C# code management (auto-refreshes on create/edit) |
-| **Assets** | `manage_asset`, `manage_prefabs` | Asset operations. **Prefab instantiation** is done via `manage_gameobject(action="create", prefab_path="...")`, not `manage_prefabs`. |
-| **Editor** | `manage_editor`, `execute_menu_item`, `read_console` | Editor control, package deployment (`deploy_package`/`restore_package` actions) |
+| **Scripts** | `create_script`, `script_apply_edits`, `refresh_unity` | C# code management |
+| **Assets** | `manage_asset`, `manage_prefabs` | Asset operations |
+| **Editor** | `manage_editor`, `execute_menu_item`, `read_console` | Editor control |
 | **Testing** | `run_tests`, `get_test_job` | Unity Test Framework |
 | **Batch** | `batch_execute` | Parallel/bulk operations |
-| **Camera** | `manage_camera` | Camera management (Unity Camera + Cinemachine). **Tier 1** (always available): create, target, lens, priority, list, screenshot. **Tier 2** (requires `com.unity.cinemachine`): brain, body/aim/noise pipeline, extensions, blending, force/release. 7 presets: follow, third_person, freelook, dolly, static, top_down, side_scroller. Resource: `mcpforunity://scene/cameras`. Use `ping` to check Cinemachine availability. See [tools-reference.md](references/tools-reference.md#camera-tools). |
-| **Graphics** | `manage_graphics` | Rendering and post-processing management. 33 actions across 5 groups: **Volume** (create/configure volumes and effects, URP/HDRP), **Bake** (lightmaps, light probes, reflection probes, Edit mode only), **Stats** (draw calls, batches, memory), **Pipeline** (quality levels, pipeline settings), **Features** (URP renderer features: add, remove, toggle, reorder). Resources: `mcpforunity://scene/volumes`, `mcpforunity://rendering/stats`, `mcpforunity://pipeline/renderer-features`. Use `ping` to check pipeline status. See [tools-reference.md](references/tools-reference.md#graphics-tools). |
-| **Packages** | `manage_packages` | Install, remove, search, and manage Unity packages and scoped registries. Query actions: list installed, search registry, get info, ping, poll status. Mutating actions: add/remove packages, embed for editing, add/remove scoped registries, force resolve. Validates identifiers, warns on git URLs, checks dependents before removal (`force=true` to override). See [tools-reference.md](references/tools-reference.md#package-tools). |
-| **Physics** | `manage_physics` | Manage 3D and 2D physics (21 actions). Settings, collision matrix, materials, joints (14 types). Queries: `raycast`, `raycast_all`, `linecast`, `shapecast` (sphere/box/capsule sweep), `overlap`. Forces: `apply_force` (AddForce/AddTorque/AddExplosionForce with ForceMode). Rigidbody: `get_rigidbody`, `configure_rigidbody` (mass, drag, gravity, constraints, collision detection). Validation: scene-wide checks. Simulation: `simulate_step` in edit mode. See [tools-reference.md](references/tools-reference.md#physics-tools). |
-| **ProBuilder** | `manage_probuilder` | 3D modeling, mesh editing, complex geometry. **When `com.unity.probuilder` is installed, prefer ProBuilder shapes over primitive GameObjects** for editable geometry, multi-material faces, or complex shapes. Supports 12 shape types, face/edge/vertex editing, smoothing, and per-face materials. See [ProBuilder Guide](references/probuilder-guide.md). |
-| **UI** | `manage_ui`, `batch_execute` with `manage_gameobject` + `manage_components` | **UI Toolkit**: Use `manage_ui` to create UXML/USS files, attach UIDocument, inspect visual trees. **uGUI (Canvas)**: Use `batch_execute` for Canvas, Panel, Button, Text, Slider, Toggle, Input Field. **Read `mcpforunity://project/info` first** to detect uGUI/TMP/Input System/UI Toolkit availability. (see [UI workflows](references/workflows.md#ui-creation-workflows)) |
-| **Docs** | `unity_reflect`, `unity_docs` | API verification and documentation lookup. **`unity_reflect`** inspects live C# APIs via reflection (requires Unity connection): `search` types across assemblies, `get_type` for member summary, `get_member` for full signatures. **`unity_docs`** fetches official docs from docs.unity3d.com (no Unity connection needed): `get_doc` (ScriptReference), `get_manual` (Manual pages), `get_package_doc` (package docs), `lookup` (parallel search all sources + project assets). **Trust hierarchy: reflection > project assets > docs.** Workflow: `unity_reflect` search -> get_type -> get_member -> `unity_docs` lookup. See [tools-reference.md](references/tools-reference.md#docs-tools). |
+| **UI** | `batch_execute` with `manage_gameobject` + `manage_components` | Canvas, Panel, Button, Text, Slider, Toggle, Input Field (see [UI workflows](references/workflows.md#ui-creation-workflows)) |
 
 ## Common Workflows
 
 ### Creating a New Script and Using It
 
 ```python
-# 1. Create the script (automatically triggers import + compilation)
+# 1. Create the script
 create_script(
     path="Assets/Scripts/PlayerController.cs",
     contents="using UnityEngine;\n\npublic class PlayerController : MonoBehaviour\n{\n    void Update() { }\n}"
 )
 
-# 2. Wait for compilation to finish
-# Read mcpforunity://editor/state → wait until is_compiling == false
+# 2. CRITICAL: Refresh and wait for compilation
+refresh_unity(mode="force", scope="scripts", compile="request", wait_for_ready=True)
 
 # 3. Check for compilation errors
 read_console(types=["error"], count=10)

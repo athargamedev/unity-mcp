@@ -746,7 +746,7 @@ class PluginHub(WebSocketEndpoint):
             websocket = cls._connections.pop(session_id, None)
             ping_task = cls._ping_tasks.pop(session_id, None)
             cls._last_pong.pop(session_id, None)
-            keys_to_remove: list[object] = []
+            keys_to_remove: list[str] = []
             for key, entry in list(cls._pending.items()):
                 if entry.get("session_id") == session_id:
                     future = entry.get("future")

@@ -57,54 +57,58 @@ Read `mcpforunity://project/info` to detect project capabilities before making a
 
 ## Infrastructure Tools
 
-### batch_execute
+### `batch_execute`
+Run multiple tool calls in one request.
 
-Execute multiple MCP commands in a single batch (10-100x faster).
-
-```python
-batch_execute(
-    commands=[                    # list[dict], required, max 25
-        {"tool": "tool_name", "params": {...}},
-        ...
-    ],
-    parallel=False,              # bool, optional - advisory only (Unity may still run sequentially)
-    fail_fast=False,             # bool, optional - stop on first failure
-    max_parallelism=None         # int, optional - max parallel workers
-)
-```
-
-`batch_execute` is not transactional: earlier commands are not rolled back if a later command fails.
-
-### set_active_instance
-
-Route commands to a specific Unity instance (multi-instance workflows).
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `commands` | `list[object]` | yes | Max 25 by default; each item: `{ "tool": str, "params": object }` |
+| `parallel` | `bool` | no | Advisory hint; Unity may still execute sequentially |
+| `fail_fast` | `bool` | no | Stop on first command failure |
+| `max_parallelism` | `int` | no | Max parallel workers |
 
 ```python
-set_active_instance(
-    instance="ProjectName@abc123"  # str, required - Name@hash or hash prefix
-)
+batch_execute(commands=[
+    {"tool": "manage_gameobject", "params": {"action": "create", "name": "CubeA", "primitive_type": "Cube"}},
+    {"tool": "manage_gameobject", "params": {"action": "create", "name": "CubeB", "primitive_type": "Cube"}}
+], fail_fast=True)
 ```
 
-### refresh_unity
+### `set_active_instance`
+Route subsequent tool calls to a specific Unity editor instance.
 
-Refresh asset database and trigger script compilation.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `instance` | `str` | yes | `Name@hash` or hash prefix |
+
+### `refresh_unity`
+Refresh assets and optionally request compilation.
+
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `mode` | `str` | no | `if_dirty` or `force` |
+| `scope` | `str` | no | `assets`, `scripts`, or `all` |
+| `compile` | `str` | no | `none` or `request` |
+| `wait_for_ready` | `bool` | no | Wait until editor is ready |
 
 ```python
-refresh_unity(
-    mode="if_dirty",             # "if_dirty" | "force"
-    scope="all",                 # "assets" | "scripts" | "all"
-    compile="none",              # "none" | "request"
-    wait_for_ready=True          # bool - wait until editor ready
-)
+refresh_unity(mode="force", scope="scripts", compile="request", wait_for_ready=True)
 ```
-
----
 
 ## Scene Tools
 
-### manage_scene
+### `manage_scene`
+Scene operations and hierarchy/screenshot queries.
 
-Scene CRUD operations, hierarchy queries, screenshots, and scene view control.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | `str` | yes | `get_hierarchy`, `screenshot`, `get_active`, `get_build_settings`, `create`, `load`, `save` |
+| `page_size` | `int` | no | For `get_hierarchy`; default 50, max 500 |
+| `cursor` | `int` | no | Pagination cursor |
+| `parent` | `str|int` | no | Parent filter |
+| `include_transform` | `bool` | no | Include transform data |
+| `name` | `str` | no | For `create` |
+| `path` | `str` | no | For `create`/`load` |
 
 ```python
 # Get hierarchy (paginated)
@@ -184,102 +188,56 @@ manage_scene(action="save")
 Search for GameObjects (returns instance IDs only).
 
 ```python
-find_gameobjects(
-    search_term="Player",        # str, required
-    search_method="by_name",     # "by_name"|"by_tag"|"by_layer"|"by_component"|"by_path"|"by_id"
-    include_inactive=False,      # bool|str
-    page_size=50,                # int, default 50, max 500
-    cursor=0                     # int, pagination cursor
-)
-# Returns: {"ids": [12345, 67890], "next_cursor": 50, ...}
+find_gameobjects(search_term="Player", search_method="by_name", page_size=50)
 ```
-
----
 
 ## GameObject Tools
 
-### manage_gameobject
+### `manage_gameobject`
+Create, modify, delete, duplicate, or move GameObjects.
 
-Create, modify, delete, duplicate GameObjects.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | `str` | yes | `create`, `modify`, `delete`, `duplicate`, `move_relative` |
+| `name` | `str` | no | Name for `create` |
+| `primitive_type` | `str` | no | `Cube`, `Sphere`, `Capsule`, `Cylinder`, `Plane`, `Quad` |
+| `target` | `str|int` | no | Name/path/instance ID |
+| `search_method` | `str` | no | Target lookup strategy |
+| `position` | `list[float]|str` | no | World position |
+| `rotation` | `list[float]|str` | no | Euler rotation |
+| `scale` | `list[float]|str` | no | Scale |
+| `set_active` | `bool` | no | Active state |
+| `layer` | `str|int` | no | Layer name/index |
+| `components_to_add` | `list[str]` | no | Components to add |
+| `components_to_remove` | `list[str]` | no | Components to remove |
+| `component_properties` | `dict` | no | Nested component property payload |
+| `save_as_prefab` | `bool` | no | Save created object as prefab |
+| `prefab_path` | `str` | no | Prefab destination |
+| `new_name` | `str` | no | For `duplicate` |
+| `offset` | `list[float]|str` | no | Duplicate position offset |
+| `reference_object` | `str|int` | no | For `move_relative` |
+| `direction` | `str` | no | `left`, `right`, `up`, `down`, `forward`, `back` |
+| `distance` | `float` | no | Move distance |
+| `world_space` | `bool` | no | Relative move in world space |
+| `parent` | `str|int` | no | Parent object for creation |
 
 ```python
-# Create
-manage_gameobject(
-    action="create",
-    name="MyCube",               # str, required
-    primitive_type="Cube",       # "Cube"|"Sphere"|"Capsule"|"Cylinder"|"Plane"|"Quad"
-    position=[0, 1, 0],          # list[float] or JSON string "[0,1,0]"
-    rotation=[0, 45, 0],         # euler angles
-    scale=[1, 1, 1],
-    components_to_add=["Rigidbody", "BoxCollider"],
-    save_as_prefab=False,
-    prefab_path="Assets/Prefabs/MyCube.prefab"
-)
-
-# Prefab instantiation — place a prefab instance in the scene
-manage_gameobject(
-    action="create",
-    name="Enemy_1",
-    prefab_path="Assets/Prefabs/Enemy.prefab",
-    position=[5, 0, 3],
-    parent="Enemies"                # optional parent GameObject
-)
-# Smart lookup — just the prefab name works too:
-manage_gameobject(action="create", name="Enemy_2", prefab_path="Enemy", position=[10, 0, 3])
-
-# Modify
-manage_gameobject(
-    action="modify",
-    target="Player",             # name, path, or instance ID
-    search_method="by_name",     # how to find target
-    position=[10, 0, 0],
-    rotation=[0, 90, 0],
-    scale=[2, 2, 2],
-    set_active=True,
-    layer="Player",
-    components_to_add=["AudioSource"],
-    components_to_remove=["OldComponent"],
-    component_properties={       # nested dict for property setting
-        "Rigidbody": {
-            "mass": 10.0,
-            "useGravity": True
-        }
-    }
-)
-
-# Delete
-manage_gameobject(action="delete", target="OldObject")
-
-# Duplicate
-manage_gameobject(
-    action="duplicate",
-    target="Player",
-    new_name="Player2",
-    offset=[5, 0, 0]             # position offset from original
-)
-
-# Move relative
-manage_gameobject(
-    action="move_relative",
-    target="Player",
-    reference_object="Enemy",    # optional reference
-    direction="left",            # "left"|"right"|"up"|"down"|"forward"|"back"
-    distance=5.0,
-    world_space=True
-)
-
-# Look at target (rotates GO to face a point or another GO)
-manage_gameobject(
-    action="look_at",
-    target="MainCamera",         # the GO to rotate
-    look_at_target="Player",     # str (GO name/path) or list[float] world position
-    look_at_up=[0, 1, 0]        # optional up vector, default [0,1,0]
-)
+manage_gameobject(action="create", name="MyCube", primitive_type="Cube", position=[0,1,0])
+manage_gameobject(action="modify", target=12345, scale=[2,2,2])
 ```
 
-### manage_components
+### `manage_components`
+Add/remove components or set component properties.
 
-Add, remove, or set properties on components.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | `str` | yes | `add`, `remove`, `set_property` |
+| `target` | `str|int` | yes | Prefer instance ID |
+| `component_type` | `str` | yes | Component class/type name |
+| `search_method` | `str` | no | Lookup strategy when target is not ID |
+| `property` | `str` | no | Single property key |
+| `value` | `any` | no | Value for single property |
+| `properties` | `dict` | no | Multiple property key/value pairs |
 
 ```python
 # Add component
@@ -340,173 +298,114 @@ manage_components(
 
 ## Script Tools
 
-### create_script
+### `create_script`
+Create a new C# script file.
 
-Create a new C# script.
-
-```python
-create_script(
-    path="Assets/Scripts/MyScript.cs",  # str, required
-    contents='''using UnityEngine;
-
-public class MyScript : MonoBehaviour
-{
-    void Start() { }
-    void Update() { }
-}''',
-    script_type="MonoBehaviour",  # optional hint
-    namespace="MyGame"            # optional namespace
-)
-```
-
-### script_apply_edits
-
-Apply structured edits to C# scripts (safer than raw text edits).
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `path` | `str` | yes | Assets-relative C# file path |
+| `contents` | `str` | yes | Full script content |
+| `script_type` | `str` | no | Optional hint, e.g. `MonoBehaviour` |
+| `namespace` | `str` | no | Optional namespace |
 
 ```python
-script_apply_edits(
-    name="MyScript",             # script name (no .cs)
-    path="Assets/Scripts",       # folder path
-    edits=[
-        # Replace entire method
-        {
-            "op": "replace_method",
-            "methodName": "Update",
-            "replacement": "void Update() { transform.Rotate(Vector3.up); }"
-        },
-        # Insert new method
-        {
-            "op": "insert_method",
-            "afterMethod": "Start",
-            "code": "void OnEnable() { Debug.Log(\"Enabled\"); }"
-        },
-        # Delete method
-        {
-            "op": "delete_method",
-            "methodName": "OldMethod"
-        },
-        # Anchor-based insert
-        {
-            "op": "anchor_insert",
-            "anchor": "void Start()",
-            "position": "before",  # "before" | "after"
-            "text": "// Called before Start\n"
-        },
-        # Regex replace
-        {
-            "op": "regex_replace",
-            "pattern": "Debug\\.Log\\(",
-            "text": "Debug.LogWarning("
-        },
-        # Prepend/append to file
-        {"op": "prepend", "text": "// File header\n"},
-        {"op": "append", "text": "\n// File footer"}
-    ]
-)
+create_script(path="Assets/Scripts/MyScript.cs", contents="using UnityEngine;\npublic class MyScript : MonoBehaviour {}")
 ```
 
-### apply_text_edits
+### `script_apply_edits`
+Apply structured code edits by operations.
 
-Apply precise character-position edits (1-indexed lines/columns).
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | `str` | yes | Script name without `.cs` |
+| `path` | `str` | yes | Folder path |
+| `edits` | `list[object]` | yes | Edit ops: `replace_method`, `insert_method`, `delete_method`, `anchor_insert`, `regex_replace`, `prepend`, `append` |
 
 ```python
-apply_text_edits(
-    uri="mcpforunity://path/Assets/Scripts/MyScript.cs",
-    edits=[
-        {
-            "startLine": 10,
-            "startCol": 5,
-            "endLine": 10,
-            "endCol": 20,
-            "newText": "replacement text"
-        }
-    ],
-    precondition_sha256="abc123...",  # optional, prevents stale edits
-    strict=True                        # optional, stricter validation
-)
+script_apply_edits(name="PlayerController", path="Assets/Scripts", edits=[
+    {"op": "replace_method", "methodName": "Update", "replacement": "void Update() { }"}
+])
 ```
 
-### validate_script
+### `apply_text_edits`
+Apply exact text edits by line/column ranges (1-indexed).
 
-Check script for syntax/semantic errors.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `uri` | `str` | yes | File URI, usually `mcpforunity://path/...` |
+| `edits` | `list[object]` | yes | Items with `startLine`, `startCol`, `endLine`, `endCol`, `newText` |
+| `precondition_sha256` | `str` | no | Prevent stale-file writes |
+| `strict` | `bool` | no | Enable stricter checks |
 
 ```python
-validate_script(
-    uri="mcpforunity://path/Assets/Scripts/MyScript.cs",
-    level="standard",            # "basic" | "standard"
-    include_diagnostics=True     # include full error details
-)
+apply_text_edits(uri="mcpforunity://path/Assets/Scripts/MyScript.cs", edits=[
+    {"startLine": 10, "startCol": 1, "endLine": 10, "endCol": 5, "newText": "void FixedUpdate()"}
+], strict=True)
 ```
 
-### get_sha
+### `validate_script`
+Validate C# script syntax/semantics.
 
-Get file hash without content (for preconditions).
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `uri` | `str` | yes | Script URI |
+| `level` | `str` | no | `basic` or `standard` |
+| `include_diagnostics` | `bool` | no | Include detailed diagnostics |
 
 ```python
-get_sha(uri="mcpforunity://path/Assets/Scripts/MyScript.cs")
-# Returns: {"sha256": "...", "lengthBytes": 1234, "lastModifiedUtc": "..."}
+validate_script(uri="mcpforunity://path/Assets/Scripts/MyScript.cs", level="standard", include_diagnostics=True)
 ```
 
-### delete_script
+### `get_sha`
+Return file SHA without fetching file content.
 
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `uri` | `str` | yes | File URI |
+
+### `delete_script`
 Delete a script file.
 
-```python
-delete_script(uri="mcpforunity://path/Assets/Scripts/OldScript.cs")
-```
-
----
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `uri` | `str` | yes | Script URI |
 
 ## Asset Tools
 
-### manage_asset
+### `manage_asset`
+Search/import/create/modify/move/rename/delete assets.
 
-Asset operations: search, import, create, modify, delete.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | `str` | yes | `search`, `get_info`, `create`, `duplicate`, `move`, `rename`, `create_folder`, `delete` |
+| `path` | `str` | no | Path or search scope |
+| `search_pattern` | `str` | no | Glob or filter expression |
+| `filter_type` | `str` | no | Asset type filter |
+| `page_size` | `int` | no | Search pagination size |
+| `page_number` | `int` | no | Search pagination page (1-based) |
+| `generate_preview` | `bool` | no | Include previews |
+| `asset_type` | `str` | no | For `create` |
+| `properties` | `dict` | no | Create/modify payload |
+| `destination` | `str` | no | For `duplicate`/`move`/`rename` |
 
 ```python
-# Search assets (paginated)
-manage_asset(
-    action="search",
-    path="Assets",               # search scope
-    search_pattern="*.prefab",   # glob or "t:MonoScript" filter
-    filter_type="Prefab",        # optional type filter
-    page_size=25,                # keep small to avoid large payloads
-    page_number=1,               # 1-based
-    generate_preview=False       # avoid base64 bloat
-)
-
-# Get asset info
-manage_asset(action="get_info", path="Assets/Prefabs/Player.prefab")
-
-# Create asset
-manage_asset(
-    action="create",
-    path="Assets/Materials/NewMaterial.mat",
-    asset_type="Material",
-    properties={"color": [1, 0, 0, 1]}
-)
-
-# Duplicate/move/rename
-manage_asset(action="duplicate", path="Assets/A.prefab", destination="Assets/B.prefab")
-manage_asset(action="move", path="Assets/A.prefab", destination="Assets/Prefabs/A.prefab")
-manage_asset(action="rename", path="Assets/A.prefab", destination="Assets/B.prefab")
-
-# Create folder
-manage_asset(action="create_folder", path="Assets/NewFolder")
-
-# Delete
-manage_asset(action="delete", path="Assets/OldAsset.asset")
+manage_asset(action="search", path="Assets", search_pattern="*.prefab", page_size=25, page_number=1)
+manage_asset(action="create_folder", path="Assets/Materials")
 ```
 
-### manage_prefabs
+### `manage_prefabs`
+Headless prefab inspection and modification.
 
-Headless prefab operations.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | `str` | yes | `get_info`, `get_hierarchy`, `create_from_gameobject`, `modify_contents` |
+| `prefab_path` | `str` | yes | Assets-relative prefab path |
+| `target` | `str|int` | no | Scene object or prefab child target |
+| `allow_overwrite` | `bool` | no | For prefab creation |
+| `position` | `list[float]|str` | no | For `modify_contents` |
+| `components_to_add` | `list[str]` | no | For `modify_contents` |
 
 ```python
-# Get prefab info
-manage_prefabs(action="get_info", prefab_path="Assets/Prefabs/Player.prefab")
-
-# Get prefab hierarchy
 manage_prefabs(action="get_hierarchy", prefab_path="Assets/Prefabs/Player.prefab")
 
 # Create prefab from scene GameObject
@@ -558,158 +457,30 @@ manage_prefabs(
 Create and modify materials.
 
 ```python
-# Create material
-manage_material(
-    action="create",
-    material_path="Assets/Materials/Red.mat",
-    shader="Standard",
-    properties={"_Color": [1, 0, 0, 1]}
-)
-
-# Get material info
-manage_material(action="get_material_info", material_path="Assets/Materials/Red.mat")
-
-# Set shader property
-manage_material(
-    action="set_material_shader_property",
-    material_path="Assets/Materials/Red.mat",
-    property="_Metallic",
-    value=0.8
-)
-
-# Set color
-manage_material(
-    action="set_material_color",
-    material_path="Assets/Materials/Red.mat",
-    property="_BaseColor",
-    color=[0, 1, 0, 1]           # RGBA
-)
-
-# Assign to renderer
-manage_material(
-    action="assign_material_to_renderer",
-    target="MyCube",
-    material_path="Assets/Materials/Red.mat",
-    slot=0                       # material slot index
-)
-
-# Set renderer color directly
-manage_material(
-    action="set_renderer_color",
-    target="MyCube",
-    color=[1, 0, 0, 1],
-    mode="create_unique"          # Creates a unique .mat asset per object (persistent)
-    # Other modes: "property_block" (default, not persistent),
-    #              "shared" (mutates shared material — avoid for primitives),
-    #              "instance" (runtime only, not persistent)
-)
+manage_material(action="create", material_path="Assets/Materials/Red.mat", shader="Standard")
+manage_material(action="assign_material_to_renderer", target="MyCube", material_path="Assets/Materials/Red.mat", slot=0)
 ```
 
-### manage_texture
+### `manage_texture`
+Create and procedurally modify textures.
 
-Create procedural textures.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | `str` | yes | `create`, `apply_pattern`, `apply_gradient` |
+| `path` | `str` | yes | Texture asset path |
+| `width` | `int` | no | For `create` |
+| `height` | `int` | no | For `create` |
+| `fill_color` | `list[number]` | no | RGBA |
+| `pattern` | `str` | no | `checkerboard`, `stripes`, `dots`, `grid`, `brick` |
+| `palette` | `list[list[number]]` | no | Colors |
+| `pattern_size` | `int` | no | Pattern scale |
+| `gradient_type` | `str` | no | `linear` or `radial` |
+| `gradient_angle` | `number` | no | Gradient angle |
 
 ```python
-manage_texture(
-    action="create",
-    path="Assets/Textures/Checker.png",
-    width=64,
-    height=64,
-    fill_color=[255, 255, 255, 255]  # or [1.0, 1.0, 1.0, 1.0]
-)
-
-# Apply pattern
-manage_texture(
-    action="apply_pattern",
-    path="Assets/Textures/Checker.png",
-    pattern="checkerboard",      # "checkerboard"|"stripes"|"dots"|"grid"|"brick"
-    palette=[[0,0,0,255], [255,255,255,255]],
-    pattern_size=8
-)
-
-# Apply gradient
-manage_texture(
-    action="apply_gradient",
-    path="Assets/Textures/Gradient.png",
-    gradient_type="linear",      # "linear"|"radial"
-    gradient_angle=45,
-    palette=[[255,0,0,255], [0,0,255,255]]
-)
+manage_texture(action="create", path="Assets/Textures/Checker.png", width=64, height=64, fill_color=[255,255,255,255])
+manage_texture(action="apply_pattern", path="Assets/Textures/Checker.png", pattern="checkerboard", pattern_size=8)
 ```
-
----
-
-## UI Tools
-
-### manage_ui
-
-Manage Unity UI Toolkit elements: UXML documents, USS stylesheets, UIDocument components, and visual tree inspection.
-
-```python
-# Create a UXML file
-manage_ui(
-    action="create",
-    path="Assets/UI/MainMenu.uxml",
-    contents='<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="Hello" /></ui:UXML>'
-)
-
-# Create a USS stylesheet
-manage_ui(
-    action="create",
-    path="Assets/UI/Styles.uss",
-    contents=".title { font-size: 32px; color: white; }"
-)
-
-# Read a UXML/USS file
-manage_ui(
-    action="read",
-    path="Assets/UI/MainMenu.uxml"
-)
-# Returns: {"success": true, "data": {"contents": "...", "path": "..."}}
-
-# Update an existing file
-manage_ui(
-    action="update",
-    path="Assets/UI/Styles.uss",
-    contents=".title { font-size: 48px; color: yellow; -unity-font-style: bold; }"
-)
-
-# Attach UIDocument to a GameObject
-manage_ui(
-    action="attach_ui_document",
-    target="UICanvas",                    # GameObject name or path
-    source_asset="Assets/UI/MainMenu.uxml",
-    panel_settings="Assets/UI/Panel.asset",  # optional, auto-creates if omitted
-    sort_order=0                          # optional, default 0
-)
-
-# Create PanelSettings asset
-manage_ui(
-    action="create_panel_settings",
-    path="Assets/UI/Panel.asset",
-    scale_mode="ScaleWithScreenSize",     # optional: "ConstantPixelSize"|"ConstantPhysicalSize"|"ScaleWithScreenSize"
-    reference_resolution={"width": 1920, "height": 1080}  # optional, for ScaleWithScreenSize
-)
-
-# Inspect the visual tree of a UIDocument
-manage_ui(
-    action="get_visual_tree",
-    target="UICanvas",                    # GameObject with UIDocument
-    max_depth=10                          # optional, default 10
-)
-# Returns: hierarchy of VisualElements with type, name, classes, styles, text, children
-```
-
-**UI Toolkit workflow:**
-
-1. Create UXML (structure, like HTML) and USS (styling, like CSS) files
-2. Create a PanelSettings asset (or let `attach_ui_document` auto-create one)
-3. Create an empty GameObject and attach UIDocument with the UXML source
-4. Use `get_visual_tree` to inspect the result
-
-**Important:** Always use `<ui:Style>` (with the `ui:` namespace prefix) in UXML files, not bare `<Style>`. UI Builder will fail to open files that use `<Style>` without the prefix.
-
----
 
 ## Editor Control Tools
 
@@ -756,82 +527,64 @@ execute_menu_item(menu_path="Window/General/Console")
 Read or clear Unity console messages.
 
 ```python
-# Get recent messages
-read_console(
-    action="get",
-    types=["error", "warning", "log"],  # or ["all"]
-    count=10,                    # max messages (ignored with paging)
-    filter_text="NullReference", # optional text filter
-    page_size=50,
-    cursor=0,
-    format="detailed",           # "plain"|"detailed"|"json"
-    include_stacktrace=True
-)
-
-# Clear console
+read_console(action="get", types=["error"], count=10, include_stacktrace=True)
 read_console(action="clear")
 ```
 
----
-
 ## Testing Tools
 
-### run_tests
+### `run_tests`
+Start async Unity test execution.
 
-Start async test execution.
-
-```python
-result = run_tests(
-    mode="EditMode",             # "EditMode"|"PlayMode"
-    test_names=["MyTests.TestA", "MyTests.TestB"],  # specific tests
-    group_names=["Integration*"],  # regex patterns
-    category_names=["Unit"],     # NUnit categories
-    assembly_names=["Tests"],    # assembly filter
-    include_failed_tests=True,   # include failure details
-    include_details=False        # include all test details
-)
-# Returns: {"job_id": "abc123", ...}
-```
-
-### get_test_job
-
-Poll test job status.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `mode` | `str` | yes | `EditMode` or `PlayMode` |
+| `test_names` | `list[str]` | no | Explicit tests |
+| `group_names` | `list[str]` | no | Regex-style group filters |
+| `category_names` | `list[str]` | no | NUnit category filter |
+| `assembly_names` | `list[str]` | no | Assembly filter |
+| `include_failed_tests` | `bool` | no | Return failed tests with details |
+| `include_details` | `bool` | no | Return full result details |
 
 ```python
-result = get_test_job(
-    job_id="abc123",
-    wait_timeout=60,             # wait up to N seconds
-    include_failed_tests=True,
-    include_details=False
-)
-# Returns: {"status": "complete"|"running"|"failed", "results": {...}}
+result = run_tests(mode="EditMode", test_names=["MyTests.TestA"], include_failed_tests=True)
 ```
 
----
+### `get_test_job`
+Poll a test job.
+
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `job_id` | `str` | yes | Job from `run_tests` |
+| `wait_timeout` | `int` | no | Wait up to N seconds |
+| `include_failed_tests` | `bool` | no | Include failed test payload |
+| `include_details` | `bool` | no | Include complete details |
 
 ## Search Tools
 
-### find_in_file
+### `find_in_file`
+Regex search within a file.
 
-Search file contents with regex.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `uri` | `str` | yes | File URI |
+| `pattern` | `str` | yes | Regex pattern |
+| `max_results` | `int` | no | Match cap |
+| `ignore_case` | `bool` | no | Case-insensitive search |
 
 ```python
-find_in_file(
-    uri="mcpforunity://path/Assets/Scripts/MyScript.cs",
-    pattern="public void \\w+",  # regex pattern
-    max_results=200,
-    ignore_case=True
-)
-# Returns: line numbers, content excerpts, match positions
+find_in_file(uri="mcpforunity://path/Assets/Scripts/MyScript.cs", pattern="public void \\w+", max_results=200)
 ```
-
----
 
 ## Custom Tools
 
-### execute_custom_tool
+### `execute_custom_tool`
+Execute a custom tool declared in the Unity project.
 
-Execute project-specific custom tools.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `tool_name` | `str` | yes | Name from `mcpforunity://custom-tools` |
+| `parameters` | `dict` | no | Tool-specific payload |
 
 ```python
 execute_custom_tool(

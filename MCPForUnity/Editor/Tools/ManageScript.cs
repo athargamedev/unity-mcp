@@ -13,8 +13,6 @@ using System.Security.Cryptography;
 
 #if USE_ROSLYN
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Formatting;
 #endif
 
 #if UNITY_EDITOR
